@@ -1,0 +1,30 @@
+# Core CARLA dependencies
+carla==0.9.15
+
+# Computer Vision and Object Detection
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Numerical Computing
+numpy<2.0.0
+
+# Web Dashboard (optional)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+python-multipart>=0.0.6
+
+# Route Planning
+networkx>=3.0
+shapely>=2.0.0
+
+# 3D Point Cloud (for LiDAR visualization)
+open3d>=0.17.0
+
+# Visualization
+matplotlib>=3.7.0
+pygame>=2.5.0
+
+# Utilities
+python-dotenv>=1.0.0

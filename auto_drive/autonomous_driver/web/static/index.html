@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoDrive Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a12;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            grid-template-rows: 36px 180px 1fr;
+            height: 100vh;
+            gap: 4px;
+            padding: 4px;
+        }
+
+        /* Sensor Row - horizontal strip above camera */
+        .sensor-row {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 4px;
+        }
+        .sensor-row .panel {
+            flex: 1;
+            min-width: 0;
+        }
+        .sensor-row .panel-content img,
+        .sensor-row .panel-content canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
+            padding: 4px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 4px;
+            border-bottom: 2px solid #e94560;
+        }
+
+        .header h1 {
+            font-size: 0.9rem;
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.6rem;
+        }
+        .status-connected { background: #00d26a; color: #000; }
+        .status-disconnected { background: #e94560; color: #fff; }
+
+        /* View Size Slider */
+        .view-size-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.65rem;
+            color: #888;
+        }
+        .view-size-control input[type="range"] {
+            width: 80px;
+            height: 4px;
+            background: #333;
+        }
+        .view-size-control .size-label {
+            color: #00d26a;
+            font-weight: 600;
+            min-width: 35px;
+        }
+
+        /* Main Camera Panel */
+        .main-camera {
+            background: #12121a;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chart panels in sidebar */
+        .chart-panel {
+            background: #12121a;
+            border-radius: 4px;
+            padding: 6px;
+            height: 150px;
+            flex-shrink: 0;
+        }
+
+        .chart-panel .chart-title {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #e94560;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            background: #1a1a2e;
+            padding: 3px 6px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .chart-panel canvas {
+            width: 100% !important;
+            height: 120px !important;
+        }
+
+        /* Panels */
+        .panel {
+            background: #12121a;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel-header {
+            background: #1a1a2e;
+            padding: 4px 8px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #e94560;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a3e;
+            flex-shrink: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .panel-content img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .panel-content canvas {
+            display: block;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            overflow-y: auto;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+        .sidebar .panel { flex: none; }
+
+        /* Status Display */
+        .status-display {
+            background: #1a1a2e;
+            padding: 5px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.7rem;
+            border-radius: 3px;
+            margin: 3px;
+        }
+        .status-display.clear { background: #00d26a; color: #000; }
+        .status-display.warning { background: #ffc107; color: #000; }
+        .status-display.danger { background: #e94560; }
+
+        /* Telemetry Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            padding: 3px;
+        }
+
+        .telemetry-item {
+            background: #1a1a2e;
+            padding: 4px 2px;
+            border-radius: 3px;
+            text-align: center;
+        }
+
+        .telemetry-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #00d26a;
+            font-family: 'Consolas', monospace;
+        }
+
+        .telemetry-label {
+            font-size: 0.55rem;
+            color: #888;
+        }
+
+        .telemetry-item.warning .telemetry-value { color: #ffc107; }
+        .telemetry-item.danger .telemetry-value { color: #e94560; }
+
+        /* Mode Toggle */
+        .mode-toggle {
+            display: flex;
+            gap: 3px;
+            padding: 3px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px 4px;
+            border: 2px solid #333;
+            background: transparent;
+            color: #888;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .mode-btn:hover { border-color: #e94560; }
+        .mode-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+
+        /* Sliders */
+        .slider-container { padding: 3px; }
+        .slider-item { margin-bottom: 4px; }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.7rem;
+        }
+        .slider-value {
+            color: #00d26a;
+            font-weight: 600;
+            font-family: monospace;
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+
+        /* Steering Visual */
+        .steering-visual { padding: 6px; }
+        .steering-bar {
+            height: 36px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        .steering-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #444;
+        }
+        .steering-indicator {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            transition: left 0.1s;
+        }
+        .steering-indicator.path { width: 8px; height: 8px; background: #3498db; top: 25%; }
+        .steering-indicator.semantic { width: 8px; height: 8px; background: #2ecc71; top: 50%; }
+        .steering-indicator.final { width: 12px; height: 12px; background: #e94560; top: 75%; }
+        .steering-legend {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 6px;
+            font-size: 0.55rem;
+        }
+        .steering-legend span { display: flex; align-items: center; gap: 3px; }
+        .legend-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .legend-dot.path { background: #3498db; }
+        .legend-dot.semantic { background: #2ecc71; }
+        .legend-dot.final { background: #e94560; }
+
+        /* Buttons */
+        .download-btn {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.55rem;
+            font-weight: 600;
+        }
+        .download-btn:hover { background: #ff6b8a; }
+
+        .keyboard-hint {
+            font-size: 0.45rem;
+            color: #666;
+            text-align: center;
+            padding: 2px;
+        }
+        .key {
+            background: #333;
+            padding: 1px 3px;
+            border-radius: 2px;
+            margin: 0 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <h1>AUTODRIVE SENSOR FUSION</h1>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <div class="view-size-control">
+                    <span>Sensors</span>
+                    <input type="range" min="120" max="250" value="180" id="sensor-height-slider">
+                    <span class="size-label" id="sensor-height-label">180</span>
+                </div>
+                <div class="view-size-control">
+                    <span>Sidebar</span>
+                    <input type="range" min="200" max="400" value="280" id="sidebar-width-slider">
+                    <span class="size-label" id="sidebar-width-label">280</span>
+                </div>
+                <button class="download-btn" onclick="downloadAllCharts()">Export</button>
+                <div id="connection-status" class="status-badge status-disconnected">Disconnected</div>
+            </div>
+        </div>
+
+        <!-- Sensor Row (horizontal) -->
+        <div class="sensor-row">
+            <!-- Semantic -->
+            <div class="panel">
+                <div class="panel-header">SEMANTIC</div>
+                <div class="panel-content">
+                    <img id="semantic-feed" src="/video/semantic" alt="Semantic">
+                </div>
+            </div>
+
+            <!-- Global Path -->
+            <div class="panel">
+                <div class="panel-header">GLOBAL PATH</div>
+                <div class="panel-content">
+                    <img id="map-feed" src="/video/map" alt="Map">
+                </div>
+            </div>
+
+            <!-- LiDAR -->
+            <div class="panel">
+                <div class="panel-header">
+                    LiDAR BEV
+                    <span id="lidar-distance">--m</span>
+                </div>
+                <div class="panel-content">
+                    <canvas id="lidar-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Radar -->
+            <div class="panel">
+                <div class="panel-header">
+                    RADAR
+                    <span id="radar-count">0 obj</span>
+                </div>
+                <div class="panel-content">
+                    <canvas id="radar-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Camera (Large) -->
+        <div class="main-camera">
+            <div class="panel-header">RGB CAMERA + YOLO</div>
+            <div class="panel-content">
+                <img id="camera-feed" src="/video/rgb" alt="Camera">
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="panel">
+                <div id="status-display" class="status-display">INITIALIZING</div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">TELEMETRY</div>
+                <div class="telemetry-grid">
+                    <div class="telemetry-item">
+                        <div class="telemetry-value" id="tel-speed">0</div>
+                        <div class="telemetry-label">km/h</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-value" id="tel-steering">0</div>
+                        <div class="telemetry-label">Steer</div>
+                    </div>
+                    <div class="telemetry-item" id="tel-lidar-container">
+                        <div class="telemetry-value" id="tel-lidar">--</div>
+                        <div class="telemetry-label">Front</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-value" id="tel-throttle">0</div>
+                        <div class="telemetry-label">Gas</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-value" id="tel-brake">0</div>
+                        <div class="telemetry-label">Brake</div>
+                    </div>
+                    <div class="telemetry-item">
+                        <div class="telemetry-value" id="tel-compass">0</div>
+                        <div class="telemetry-label">Head</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">STEERING</div>
+                <div class="steering-visual">
+                    <div class="steering-bar">
+                        <div class="steering-center"></div>
+                        <div class="steering-indicator path" id="steer-path"></div>
+                        <div class="steering-indicator semantic" id="steer-semantic"></div>
+                        <div class="steering-indicator final" id="steer-final"></div>
+                    </div>
+                    <div class="steering-legend">
+                        <span><div class="legend-dot path"></div>Path</span>
+                        <span><div class="legend-dot semantic"></div>Lane</span>
+                        <span><div class="legend-dot final"></div>Final</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">MODE</div>
+                <div class="mode-toggle">
+                    <button class="mode-btn" id="btn-auto">AUTO</button>
+                    <button class="mode-btn active" id="btn-manual">MANUAL</button>
+                </div>
+                <div class="keyboard-hint">
+                    <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> + <span class="key">Space</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">CONTROLS</div>
+                <div class="slider-container">
+                    <div class="slider-item">
+                        <div class="slider-header">
+                            <span>Speed</span>
+                            <span class="slider-value"><span id="val-speed">45</span></span>
+                        </div>
+                        <input type="range" min="10" max="80" value="45" id="slider-speed">
+                    </div>
+                    <div class="slider-item">
+                        <div class="slider-header">
+                            <span>Steer</span>
+                            <span class="slider-value"><span id="val-steer">1.0</span></span>
+                        </div>
+                        <input type="range" min="0.5" max="2" step="0.1" value="1.0" id="slider-steer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts (stacked vertically) -->
+            <div class="chart-panel">
+                <div class="chart-title">Speed</div>
+                <canvas id="speedChart"></canvas>
+            </div>
+            <div class="chart-panel">
+                <div class="chart-title">Steering</div>
+                <canvas id="steeringChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== CANVAS SETUP =====
+        const lidarCanvas = document.getElementById('lidar-canvas');
+        const radarCanvas = document.getElementById('radar-canvas');
+        const lidarCtx = lidarCanvas.getContext('2d');
+        const radarCtx = radarCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            [lidarCanvas, radarCanvas].forEach(canvas => {
+                const panel = canvas.parentElement;
+                if (!panel) return;
+                const rect = panel.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+                const dpr = window.devicePixelRatio || 1;
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                canvas.style.width = rect.width + 'px';
+                canvas.style.height = rect.height + 'px';
+                canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+            });
+            drawLidar();
+            drawRadar();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        let resizeAttempts = 0;
+        function tryResize() {
+            resizeCanvases();
+            if (++resizeAttempts < 10) setTimeout(tryResize, 200);
+        }
+        setTimeout(tryResize, 100);
+
+        // ===== LIDAR =====
+        let lidarPoints = [];
+        let lidarFrontDist = 100;
+
+        function drawLidar() {
+            const ctx = lidarCtx;
+            const dpr = window.devicePixelRatio || 1;
+            const w = lidarCanvas.width / dpr;
+            const h = lidarCanvas.height / dpr;
+            if (w === 0 || h === 0) return;
+
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, w, h);
+
+            const centerX = w / 2;
+            const centerY = h * 0.85;
+            const scale = Math.min(w, h) / 35;
+
+            ctx.strokeStyle = '#1a1a2e';
+            ctx.lineWidth = 1;
+            [10, 20].forEach(r => {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r * scale, Math.PI, 2 * Math.PI);
+                ctx.stroke();
+            });
+
+            ctx.fillStyle = 'rgba(0, 100, 0, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 2 * scale, centerY);
+            ctx.lineTo(centerX - 2 * scale, centerY - 20 * scale);
+            ctx.lineTo(centerX + 2 * scale, centerY - 20 * scale);
+            ctx.lineTo(centerX + 2 * scale, centerY);
+            ctx.fill();
+
+            lidarPoints.forEach(p => {
+                const px = centerX + p.y * scale;
+                const py = centerY - p.x * scale;
+                if (px >= 0 && px <= w && py >= 0 && py <= h) {
+                    const hue = Math.max(0, Math.min(120, (p.z + 1.5) * 40));
+                    ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                    ctx.fillRect(px - 1, py - 1, 2, 2);
+                }
+            });
+
+            ctx.fillStyle = '#e94560';
+            ctx.fillRect(centerX - 2, centerY - 4, 4, 8);
+            document.getElementById('lidar-distance').textContent = lidarFrontDist.toFixed(1) + 'm';
+        }
+
+        // ===== RADAR =====
+        let radarDetections = [];
+
+        function drawRadar() {
+            const ctx = radarCtx;
+            const dpr = window.devicePixelRatio || 1;
+            const w = radarCanvas.width / dpr;
+            const h = radarCanvas.height / dpr;
+            if (w === 0 || h === 0) return;
+
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, w, h);
+
+            const centerX = w / 2;
+            const centerY = h * 0.9;
+            const scale = (h * 0.8) / 50;
+
+            ctx.strokeStyle = '#1a1a2e';
+            ctx.lineWidth = 1;
+            [20, 40].forEach(r => {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r * scale, Math.PI, 2 * Math.PI);
+                ctx.stroke();
+            });
+
+            radarDetections.forEach(det => {
+                const rad = det.azimuth * Math.PI / 180;
+                const px = centerX + det.distance * scale * Math.sin(rad);
+                const py = centerY - det.distance * scale * Math.cos(rad);
+                let color = '#ffff00';
+                if (det.velocity < -2) color = '#ff4444';
+                else if (det.velocity > 2) color = '#44ff44';
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            document.getElementById('radar-count').textContent = radarDetections.length + ' obj';
+        }
+
+        // ===== CHARTS =====
+        const MAX_POINTS = 50;
+        const speedData = {
+            labels: Array(MAX_POINTS).fill(''),
+            datasets: [
+                { label: 'Target', data: Array(MAX_POINTS).fill(45), borderColor: '#e94560', borderWidth: 1.5, pointRadius: 0, tension: 0.3, borderDash: [4, 2] },
+                { label: 'Actual', data: Array(MAX_POINTS).fill(0), borderColor: '#00d26a', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true, backgroundColor: 'rgba(0,210,106,0.1)' }
+            ]
+        };
+        const steeringData = {
+            labels: Array(MAX_POINTS).fill(''),
+            datasets: [
+                { label: 'Path', data: Array(MAX_POINTS).fill(0), borderColor: '#3498db', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+                { label: 'Lane', data: Array(MAX_POINTS).fill(0), borderColor: '#2ecc71', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+                { label: 'Final', data: Array(MAX_POINTS).fill(0), borderColor: '#e94560', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+            ]
+        };
+        const chartOpts = {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'bottom',
+                    labels: { color: '#666', font: { size: 8 }, boxWidth: 10, padding: 4 }
+                }
+            },
+            scales: {
+                x: { display: false },
+                y: {
+                    display: true,
+                    grid: { color: '#1a1a2e' },
+                    ticks: { color: '#555', font: { size: 8 }, maxTicksLimit: 4 }
+                }
+            }
+        };
+        const speedChart = new Chart(document.getElementById('speedChart'), {
+            type: 'line', data: speedData,
+            options: { ...chartOpts, scales: { ...chartOpts.scales, y: { ...chartOpts.scales.y, min: 0, max: 80 } } }
+        });
+        const steeringChart = new Chart(document.getElementById('steeringChart'), {
+            type: 'line', data: steeringData,
+            options: { ...chartOpts, scales: { ...chartOpts.scales, y: { ...chartOpts.scales.y, min: -1, max: 1 } } }
+        });
+
+        function updateCharts(telemetry, chartData) {
+            speedData.datasets[0].data.push(chartData.target_speed || 45);
+            speedData.datasets[0].data.shift();
+            speedData.datasets[1].data.push(telemetry.speed || 0);
+            speedData.datasets[1].data.shift();
+            speedChart.update('none');
+
+            steeringData.datasets[0].data.push(chartData.path_steering || 0);
+            steeringData.datasets[0].data.shift();
+            steeringData.datasets[1].data.push(chartData.semantic_steering || 0);
+            steeringData.datasets[1].data.shift();
+            steeringData.datasets[2].data.push(telemetry.steering || 0);
+            steeringData.datasets[2].data.shift();
+            steeringChart.update('none');
+
+            const toPercent = v => 50 + v * 45;
+            document.getElementById('steer-path').style.left = toPercent(chartData.path_steering || 0) + '%';
+            document.getElementById('steer-semantic').style.left = toPercent(chartData.semantic_steering || 0) + '%';
+            document.getElementById('steer-final').style.left = toPercent(telemetry.steering || 0) + '%';
+        }
+
+        function downloadAllCharts() {
+            [speedChart, steeringChart].forEach((chart, i) => {
+                const link = document.createElement('a');
+                link.download = ['speed', 'steering'][i] + '_' + Date.now() + '.png';
+                link.href = chart.canvas.toDataURL('image/png', 1.0);
+                link.click();
+            });
+        }
+
+        // ===== TELEMETRY =====
+        function updateTelemetry(tel) {
+            document.getElementById('tel-speed').textContent = Math.round(tel.speed || 0);
+            document.getElementById('tel-steering').textContent = (tel.steering || 0).toFixed(2);
+            document.getElementById('tel-throttle').textContent = (tel.throttle || 0).toFixed(2);
+            document.getElementById('tel-brake').textContent = (tel.brake || 0).toFixed(2);
+            document.getElementById('tel-lidar').textContent = Math.round(tel.lidar_front || 100);
+            document.getElementById('tel-compass').textContent = Math.round(tel.compass || 0);
+            lidarFrontDist = tel.lidar_front || 100;
+
+            const lidarContainer = document.getElementById('tel-lidar-container');
+            lidarContainer.className = 'telemetry-item';
+            if (tel.lidar_front < 10) lidarContainer.classList.add('danger');
+            else if (tel.lidar_front < 20) lidarContainer.classList.add('warning');
+
+            const statusEl = document.getElementById('status-display');
+            statusEl.textContent = tel.status || 'UNKNOWN';
+            statusEl.className = 'status-display';
+            if (tel.status?.includes('CLEAR')) statusEl.classList.add('clear');
+            else if (tel.status?.includes('CAUTION') || tel.status?.includes('BRAKING')) statusEl.classList.add('warning');
+            else if (tel.status?.includes('STOP') || tel.status?.includes('OBSTACLE')) statusEl.classList.add('danger');
+        }
+
+        // ===== WEBSOCKET =====
+        let ws = null, reconnectInterval = null;
+
+        function connect() {
+            ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`);
+            ws.onopen = () => {
+                document.getElementById('connection-status').textContent = 'Connected';
+                document.getElementById('connection-status').className = 'status-badge status-connected';
+                if (reconnectInterval) { clearInterval(reconnectInterval); reconnectInterval = null; }
+            };
+            ws.onclose = () => {
+                document.getElementById('connection-status').textContent = 'Disconnected';
+                document.getElementById('connection-status').className = 'status-badge status-disconnected';
+                if (!reconnectInterval) reconnectInterval = setInterval(connect, 2000);
+            };
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.type === 'telemetry') {
+                    updateTelemetry(data.data);
+                    if (data.chart_data) updateCharts(data.data, data.chart_data);
+                } else if (data.type === 'sensor_data') {
+                    if (data.lidar_points) { lidarPoints = data.lidar_points; drawLidar(); }
+                    if (data.radar_detections) { radarDetections = data.radar_detections; drawRadar(); }
+                } else if (data.type === 'init' || data.type === 'state_update') {
+                    if (data.controls) {
+                        document.getElementById('btn-auto').classList.toggle('active', data.controls.auto_mode);
+                        document.getElementById('btn-manual').classList.toggle('active', !data.controls.auto_mode);
+                    }
+                }
+            };
+        }
+
+        function send(data) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data)); }
+
+        document.getElementById('btn-auto').onclick = () => send({ type: 'set_param', param: 'auto_mode', value: true });
+        document.getElementById('btn-manual').onclick = () => send({ type: 'set_param', param: 'auto_mode', value: false });
+        document.getElementById('slider-speed').oninput = e => {
+            document.getElementById('val-speed').textContent = e.target.value;
+            send({ type: 'set_param', param: 'max_speed', value: parseFloat(e.target.value) });
+        };
+        document.getElementById('slider-steer').oninput = e => {
+            document.getElementById('val-steer').textContent = parseFloat(e.target.value).toFixed(1);
+            send({ type: 'set_param', param: 'steering_sensitivity', value: parseFloat(e.target.value) });
+        };
+
+        // Sensor row height slider
+        document.getElementById('sensor-height-slider').oninput = e => {
+            const h = parseInt(e.target.value);
+            document.getElementById('sensor-height-label').textContent = h;
+            document.querySelector('.dashboard').style.gridTemplateRows = `36px ${h}px 1fr`;
+        };
+        // Sidebar width slider
+        document.getElementById('sidebar-width-slider').oninput = e => {
+            const w = parseInt(e.target.value);
+            document.getElementById('sidebar-width-label').textContent = w;
+            document.querySelector('.dashboard').style.gridTemplateColumns = `1fr ${w}px`;
+        };
+        // Initialize with default values
+        document.getElementById('sensor-height-slider').dispatchEvent(new Event('input'));
+        document.getElementById('sidebar-width-slider').dispatchEvent(new Event('input'));
+
+        const keys = { w: false, a: false, s: false, d: false, ' ': false };
+        document.addEventListener('keydown', e => {
+            const k = e.key.toLowerCase();
+            if (k in keys || k === ' ') { keys[k === ' ' ? ' ' : k] = true; sendManual(); if (k === ' ') e.preventDefault(); }
+        });
+        document.addEventListener('keyup', e => {
+            const k = e.key.toLowerCase();
+            if (k in keys || k === ' ') { keys[k === ' ' ? ' ' : k] = false; sendManual(); }
+        });
+        function sendManual() {
+            send({ type: 'manual_control', throttle: keys.w ? 1 : (keys.s ? -0.5 : 0), steering: keys.a ? -1 : (keys.d ? 1 : 0), brake: keys[' '] ? 1 : 0 });
+        }
+
+        function animate() { drawLidar(); drawRadar(); requestAnimationFrame(animate); }
+        connect();
+        animate();
+    </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# External dependencies (large)
+CARLA_Latest/
+models/
+llama_cpp/
+lanenet-lane-detection/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# YOLO weights (download separately)
+*.pt
+yolov8*.pt

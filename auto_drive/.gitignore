@@ -1,0 +1,82 @@
+# YOLO Model Files (Large - download separately)
+*.pt
+*.onnx
+*.engine
+*.trt
+*.gguf
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyTest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# CARLA Recordings
+recordings/
+recorded_data/
+
+# Video/Image outputs (generated during runtime)
+*.mp4
+*.avi
+output/
+screenshots/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Experimental/Alternative implementations (local only)
+others/
