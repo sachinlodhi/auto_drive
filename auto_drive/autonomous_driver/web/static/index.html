@@ -18,18 +18,18 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 280px;
+            grid-template-columns: 1fr 340px;
             grid-template-rows: 36px 180px 1fr;
             height: 100vh;
-            gap: 4px;
-            padding: 4px;
+            gap: 2px;
+            padding: 2px;
         }
 
         /* Sensor Row - horizontal strip above camera */
         .sensor-row {
             grid-column: 1 / -1;
             display: flex;
-            gap: 4px;
+            gap: 2px;
         }
         .sensor-row .panel {
             flex: 1;
@@ -174,7 +174,7 @@
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
             overflow-y: auto;
         }
 
@@ -361,8 +361,8 @@
                 </div>
                 <div class="view-size-control">
                     <span>Sidebar</span>
-                    <input type="range" min="200" max="400" value="280" id="sidebar-width-slider">
-                    <span class="size-label" id="sidebar-width-label">280</span>
+                    <input type="range" min="250" max="500" value="340" id="sidebar-width-slider">
+                    <span class="size-label" id="sidebar-width-label">340</span>
                 </div>
                 <button class="download-btn" onclick="downloadAllCharts()">Export</button>
                 <div id="connection-status" class="status-badge status-disconnected">Disconnected</div>
